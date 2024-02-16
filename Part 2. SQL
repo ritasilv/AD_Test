@@ -1,0 +1,123 @@
+1. Write an SQL query that will return a number of clients by day that: 
+- only viewed products in their first session;
+- added only one product to the basket; 
+- placed an order within two days time after the first session.
+
+
+--determined first session
+WITH first_session_users AS (
+    SELECT 
+        user,
+        MIN(event_date) AS first_session_date
+    FROM 
+         'data_set_da_test.csv'
+    GROUP BY 
+        user
+),
+
+--determined view_only_users
+view_only_users AS (
+    SELECT 
+        user
+    FROM 
+        'data_set_da_test.csv'
+    WHERE 
+        event_type = 'page_view'
+    GROUP BY 
+        user
+    HAVING 
+        COUNT(*) > 0 AND COUNT(*) = COUNT(CASE WHEN event_type = 'page_view' THEN 1 END)
+),
+--determined users that added one product to the basked
+one_product_users AS (
+    SELECT 
+        user
+    FROM 
+        'data_set_da_test.csv'
+    WHERE 
+        event_type = 'add_to_cart'
+    GROUP BY 
+        user
+    HAVING 
+        COUNT(DISTINCT product) = 1
+),
+--determined users that placed orders
+order_placed_users AS (
+    SELECT 
+        user
+    FROM 
+        'data_set_da_test.csv'
+    WHERE 
+        event_type = 'order'
+    GROUP BY 
+        user
+),
+--determined orders within two days after first session
+clients_within_two_days AS (
+    SELECT 
+        DISTINCT user
+    FROM 
+        first_session_users AS fsu
+    JOIN 
+        order_placed_users AS opu
+    ON 
+        fsu.user = opu.user
+    WHERE 
+        opu.first_session_date BETWEEN fsu.first_session_date AND DATE_ADD(fsu.first_session_date, INTERVAL 2 DAY)
+)
+SELECT 
+    CAST(users.first_session_date AS DATE) AS date,
+    COUNT(DISTINCT view_only.user) AS num_view_only_users,
+    COUNT(DISTINCT one_product.user) AS num_one_product_users,
+    COUNT(DISTINCT orders.user) AS num_order_placed_users
+FROM 
+    first_session_users AS users
+LEFT JOIN 
+    view_only_users AS view_only
+ON 
+    users.user = view_only.user
+LEFT JOIN 
+    one_product_users AS one_product
+ON 
+    users.user = one_product.user
+LEFT JOIN 
+    order_placed_users AS orders
+ON 
+    users.user = orders.user
+GROUP BY 
+    CAST(users.first_session_date AS DATE);
+
+
+2. Write a query that will return any abnormal (to our view) user behavior. Describe why the behavior is unusual.
+
+An abnormal user behaviour can be an "incorrect" event sequence, on the assumption that the "correct" user behaviour would be page_view -> add_to_cart -> order
+
+
+WITH event_sequences AS (
+    SELECT 
+        user,
+        session,
+        page_type,
+        event_type,
+        LAG(event_type, 1) OVER (PARTITION BY user, session ORDER BY event_date) AS prev_event,
+        LAG(page_type, 1) OVER (PARTITION BY user, session ORDER BY event_date) AS prev_page
+    FROM 
+         'data_set_da_test.csv'
+)
+SELECT 
+    user,
+    session,
+    COUNT(*) AS abnormal_sequences_count
+FROM 
+    event_sequences
+WHERE 
+    (prev_event = 'page_view' AND event_type = 'add_to_cart') OR
+    (prev_event = 'add_to_cart' AND event_type = 'order') OR
+    (prev_page != 'product' AND event_type = 'add_to_cart') OR
+    (prev_page != 'product' AND event_type = 'order')
+GROUP BY 
+    user,
+    session;
+
+
+
