@@ -1,0 +1,27 @@
+1. # Unique users: CNTD(user_id)
+
+2. # Unique Sessions: CNTS(session_id)
+
+3. # Count Orders: Calculated field with Count orders: if [event_type] = 'order' then 1 else 0 END
+
+4. # Total Products Purchased: first filter on product_id not equal to 0, then CNTD(product_id)
+
+5. Sessions vs Orders : CNTD(session_id), CNT(Count_orders)
+
+6. Order Count: filter page_type = 'order' and CNT(page_type)
+
+7. AVG items purchased: calculated field products per user: INT(COUNTD([product_id])/ (COUNTD([user_id])))
+
+8. AVG order per user: calculated field orders per user: INT(INT([count event ]) / (COUNTD([user_id])))
+
+9. AVG session duration (seconds): DATEDIFF('second', {FIXED [session_id]: MIN([Event Date])}, {FIXED [session_id]: MAX([Event Date])})
+
+10. Events Distribution: Used a calculated field count event count([event_type]) to build the funnel
+
+11. First Page Visited vs Avg Session Duration: first determined the first session date by calculating the field First event ({ FIXED [session_id] : MIN([Event Date]) }), then calculated the First Page type by IF [Event Date] = [First event] THEN [page_type] END
+
+
+
+
+
+
